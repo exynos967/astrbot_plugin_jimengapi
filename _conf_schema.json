@@ -88,6 +88,11 @@
     "type": "int",
     "default": 3
   },
+  "http_timeout_seconds": {
+    "description": "与即梦2API通信及媒体下载的超时时间（秒）",
+    "type": "int",
+    "default": 60
+  },
   "video_model": {
     "description": "默认视频模型名称（如 jimeng-video-3.0）",
     "type": "string",

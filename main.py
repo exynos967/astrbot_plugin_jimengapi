@@ -41,6 +41,7 @@ class JimengPlugin(Star):
         self.sample_strength = float(config.get("sample_strength", 0.7))
         self.response_format = config.get("response_format", "url").strip()
         self.max_retry_attempts = int(config.get("max_retry_attempts", 3))
+        self.http_timeout_seconds = int(config.get("http_timeout_seconds", 60))
         # 视频默认配置
         self.video_model = config.get("video_model", "jimeng-video-3.0").strip()
         self.video_stream = bool(config.get("video_stream", True))
@@ -169,6 +170,11 @@ class JimengPlugin(Star):
             self.sample_strength = float(cfg.get("sample_strength", self.sample_strength))
             self.response_format = cfg.get("response_format", self.response_format)
             self.max_retry_attempts = int(cfg.get("max_retry_attempts", self.max_retry_attempts))
+            if "http_timeout_seconds" in cfg:
+                try:
+                    self.http_timeout_seconds = int(cfg.get("http_timeout_seconds", self.http_timeout_seconds))
+                except Exception:
+                    pass
             self.callback_api_base = cfg.get("callback_api_base", self.callback_api_base)
             # 视频配置（全局覆盖）
             self.video_model = cfg.get("video_model", self.video_model)
@@ -227,6 +233,7 @@ class JimengPlugin(Star):
             max_retry_attempts=self.max_retry_attempts,
             video_model=self.video_model,
             video_stream=self.video_stream,
+            timeout_seconds=self.http_timeout_seconds,
         )
 
     async def _save_b64_image(self, b64_data: str, fmt: str = "png") -> str:
@@ -474,9 +481,19 @@ class JimengPlugin(Star):
                     videos_dir = Path(__file__).parent / "videos"
                     if self.log_timing:
                         with timing("INFO", tag, "download_video", url=vurl):
-                            video_path = await download_to_images_dir(vurl, videos_dir, prefer_video=True)
+                            video_path = await download_to_images_dir(
+                                vurl,
+                                videos_dir,
+                                prefer_video=True,
+                                timeout_seconds=self.http_timeout_seconds,
+                            )
                     else:
-                        video_path = await download_to_images_dir(vurl, videos_dir, prefer_video=True)
+                        video_path = await download_to_images_dir(
+                            vurl,
+                            videos_dir,
+                            prefer_video=True,
+                            timeout_seconds=self.http_timeout_seconds,
+                        )
                     if not video_path:
                         log_with("WARN", tag, "video_download_pending", url=vurl)
                         continue
@@ -520,7 +537,12 @@ class JimengPlugin(Star):
             vurl, raw = await jm_video(cfg, prompt=video_description, stream=prefer_stream, session_tokens=self.session_tokens)
             if vurl:
                 videos_dir = Path(__file__).parent / "videos"
-                video_path = await download_to_images_dir(vurl, videos_dir, prefer_video=True)
+                video_path = await download_to_images_dir(
+                    vurl,
+                    videos_dir,
+                    prefer_video=True,
+                    timeout_seconds=self.http_timeout_seconds,
+                )
                 if not video_path:
                     yield event.chain_result([Plain(vurl)])
                     return
@@ -631,9 +653,19 @@ class JimengPlugin(Star):
                     images_dir = Path(__file__).parent / "images"
                     if self.log_timing:
                         with timing("INFO", tag, "download_image", url=image_url):
-                            image_path = await download_to_images_dir(image_url, images_dir, prefer_image=True)
+                            image_path = await download_to_images_dir(
+                                image_url,
+                                images_dir,
+                                prefer_image=True,
+                                timeout_seconds=self.http_timeout_seconds,
+                            )
                     else:
-                        image_path = await download_to_images_dir(image_url, images_dir, prefer_image=True)
+                        image_path = await download_to_images_dir(
+                            image_url,
+                            images_dir,
+                            prefer_image=True,
+                            timeout_seconds=self.http_timeout_seconds,
+                        )
                     if not image_path:
                         log_with("WARN", tag, "image_download_failed", url=image_url)
                         continue
@@ -767,9 +799,19 @@ class JimengPlugin(Star):
                     images_dir = Path(__file__).parent / "images"
                     if self.log_timing:
                         with timing("INFO", tag, "download_image", url=image_url):
-                            image_path = await download_to_images_dir(image_url, images_dir, prefer_image=True)
+                            image_path = await download_to_images_dir(
+                                image_url,
+                                images_dir,
+                                prefer_image=True,
+                                timeout_seconds=self.http_timeout_seconds,
+                            )
                     else:
-                        image_path = await download_to_images_dir(image_url, images_dir, prefer_image=True)
+                        image_path = await download_to_images_dir(
+                            image_url,
+                            images_dir,
+                            prefer_image=True,
+                            timeout_seconds=self.http_timeout_seconds,
+                        )
                     if not image_path:
                         log_with("WARN", tag, "image_download_failed", url=image_url)
                         continue
@@ -821,7 +863,12 @@ class JimengPlugin(Star):
 
             if image_url:
                 images_dir = Path(__file__).parent / "images"
-                image_path = await download_to_images_dir(image_url, images_dir, prefer_image=True)
+                image_path = await download_to_images_dir(
+                    image_url,
+                    images_dir,
+                    prefer_image=True,
+                    timeout_seconds=self.http_timeout_seconds,
+                )
                 if not image_path:
                     yield event.chain_result([Plain("下载图片失败，请稍后再试。")])
                     return

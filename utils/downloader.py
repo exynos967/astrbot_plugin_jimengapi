@@ -43,13 +43,19 @@ def _ext_from_url(url: str) -> str:
         return ""
 
 
-async def download_to_images_dir(url: str, images_dir: Path, prefer_video: bool = False, prefer_image: bool = False) -> str | None:
+async def download_to_images_dir(
+    url: str,
+    images_dir: Path,
+    prefer_video: bool = False,
+    prefer_image: bool = False,
+    timeout_seconds: int = 60,
+) -> str | None:
     """Download a media URL to images_dir and return the local file path.
     - prefer_video=True: 仅当 Content-Type 为 video/* 或 URL 后缀为常见视频后缀时保存；否则返回 None。
     - prefer_image=True: 仅当 Content-Type 为 image/* 或 URL 后缀为常见图片后缀时保存；否则返回 None。
     - 两者都 False: 尝试保存（不推荐）。
     """
-    timeout = aiohttp.ClientTimeout(total=60)
+    timeout = aiohttp.ClientTimeout(total=timeout_seconds)
     url_ext = _ext_from_url(url)
     try:
         async with aiohttp.ClientSession(timeout=timeout) as session:

@@ -23,6 +23,7 @@ class JimengConfig:
     max_retry_attempts: int = 3
     video_model: str = "jimeng-video-3.0"
     video_stream: bool = True
+    timeout_seconds: int = 60
     # 可选：视频宽高与分辨率可通过命令参数传入，不放 Schema
 
 
@@ -146,7 +147,7 @@ async def generate_video(
             "Authorization": f"Bearer {tok}",
         }
         if use_stream:
-            text = await _request_sse(url, payload, headers)
+            text = await _request_sse(url, payload, headers, timeout_total=cfg.timeout_seconds)
             if text:
                 vurl = _extract_first_url(text)
                 if vurl:
@@ -156,7 +157,14 @@ async def generate_video(
                 logger.info(f"video: token #{idx} produced no direct url, trying next")
                 continue
         else:
-            data = await _request_json("POST", url, json=payload, headers=headers, max_retry=cfg.max_retry_attempts)
+            data = await _request_json(
+                "POST",
+                url,
+                json=payload,
+                headers=headers,
+                timeout_total=cfg.timeout_seconds,
+                max_retry=cfg.max_retry_attempts,
+            )
             if data:
                 try:
                     content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
@@ -225,7 +233,14 @@ async def generate_video_v2(
             "Content-Type": "application/json",
             "Authorization": f"Bearer {tok}",
         }
-        data = await _request_json("POST", url, json=payload, headers=headers, max_retry=cfg.max_retry_attempts)
+        data = await _request_json(
+            "POST",
+            url,
+            json=payload,
+            headers=headers,
+            timeout_total=cfg.timeout_seconds,
+            max_retry=cfg.max_retry_attempts,
+        )
         if data:
             try:
                 first = (data.get("data") or [None])[0]
@@ -284,7 +299,14 @@ async def generate_image(
             "Content-Type": "application/json",
             "Authorization": f"Bearer {tok}",
         }
-        data = await _request_json("POST", url, json=payload, headers=headers, max_retry=cfg.max_retry_attempts)
+        data = await _request_json(
+            "POST",
+            url,
+            json=payload,
+            headers=headers,
+            timeout_total=cfg.timeout_seconds,
+            max_retry=cfg.max_retry_attempts,
+        )
         if data:
             try:
                 first = (data.get("data") or [None])[0]
@@ -347,7 +369,14 @@ async def compose_image(
             "Content-Type": "application/json",
             "Authorization": f"Bearer {tok}",
         }
-        data = await _request_json("POST", url, json=payload, headers=headers, max_retry=cfg.max_retry_attempts)
+        data = await _request_json(
+            "POST",
+            url,
+            json=payload,
+            headers=headers,
+            timeout_total=cfg.timeout_seconds,
+            max_retry=cfg.max_retry_attempts,
+        )
         if data:
             try:
                 first = (data.get("data") or [None])[0]
