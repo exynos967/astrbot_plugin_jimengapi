@@ -18,7 +18,7 @@ import os
 from pathlib import Path
 
 
-@register("astrbot_plugin_jimengapi", "薄暝", "对接即梦2API，支持生图，图生图与文生视频", "0.2.0")
+@register("astrbot_plugin_jimengapi", "薄暝", "对接即梦2API，支持生图，图生图与文生视频", "0.3.0")
 class JimengPlugin(Star):
     def __init__(self, context: Context, config: dict):
         super().__init__(context)
@@ -36,6 +36,7 @@ class JimengPlugin(Star):
         self.model = config.get("model", "jimeng-4.0").strip()
         self.default_ratio = config.get("default_ratio", "1:1").strip()
         self.default_resolution = config.get("default_resolution", "2k").strip()
+        self.intelligent_ratio = bool(config.get("intelligent_ratio", False))
         self.negative_prompt = config.get("negative_prompt", "")
         self.sample_strength = float(config.get("sample_strength", 0.7))
         self.response_format = config.get("response_format", "url").strip()
@@ -159,6 +160,11 @@ class JimengPlugin(Star):
             self.model = cfg.get("model", self.model)
             self.default_ratio = cfg.get("default_ratio", self.default_ratio)
             self.default_resolution = cfg.get("default_resolution", self.default_resolution)
+            if "intelligent_ratio" in cfg:
+                try:
+                    self.intelligent_ratio = bool(cfg.get("intelligent_ratio", self.intelligent_ratio))
+                except Exception:
+                    pass
             self.negative_prompt = cfg.get("negative_prompt", self.negative_prompt)
             self.sample_strength = float(cfg.get("sample_strength", self.sample_strength))
             self.response_format = cfg.get("response_format", self.response_format)
@@ -214,6 +220,7 @@ class JimengPlugin(Star):
             model=self.model,
             default_ratio=self.default_ratio,
             default_resolution=self.default_resolution,
+            intelligent_ratio=self.intelligent_ratio,
             negative_prompt=self.negative_prompt,
             sample_strength=self.sample_strength,
             response_format=self.response_format,
@@ -346,11 +353,11 @@ class JimengPlugin(Star):
         """列出所有指令"""
         text = (
             "即梦2 插件指令:\n"
-            "- /即梦生图 <prompt> [ratio=1:1] [res=2k] [fmt=url|b64]\n"
+            "- /即梦生图 <prompt> [ratio=1:1] [res=2k] [fmt=url|b64] [ir=true|false]\n"
             "  说明: 生成图片。\n"
-            "- /即梦改图 <prompt> [ratio=1:1] [res=2k] [fmt=url|b64] [strength=0.7]\n"
+            "- /即梦改图 <prompt> [ratio=1:1] [res=2k] [fmt=url|b64] [strength=0.7] [ir=true|false]\n"
             "  说明: 修改图片；需附带或引用至少一张图片。\n"
-            "- /即梦视频 <prompt> [model=jimeng-video-3.0] [stream=true|false]\n"
+            "- /即梦视频 <prompt> [model=jimeng-video-3.0] [ratio=16:9] [res=1080p] [duration=5] [stream=true|false]\n"
             "  说明: 生成视频。\n"
         )
         yield event.plain_result(text)
@@ -393,6 +400,8 @@ class JimengPlugin(Star):
         width = None
         height = None
         vres = None
+        vratio = None
+        vdur = None
         parts = text.split()
         prompt = " ".join([p for p in parts if "=" not in p])
         for p in parts:
@@ -413,6 +422,13 @@ class JimengPlugin(Star):
                         pass
                 elif k in ("res", "resolution"):
                     vres = v
+                elif k in ("ratio", "r"):
+                    vratio = v
+                elif k in ("duration", "dur"):
+                    try:
+                        vdur = int(v)
+                    except Exception:
+                        pass
 
         # 采集可选首/尾帧的图片 URL
         file_urls = await self._collect_image_urls_from_event(event)
@@ -431,9 +447,11 @@ class JimengPlugin(Star):
                             cfg,
                             prompt=prompt,
                             model=model,
+                            ratio=vratio,
                             width=width,
                             height=height,
                             resolution=vres,
+                            duration=vdur,
                             file_urls=file_urls,
                             response_format=None,
                             session_tokens=[tok],
@@ -443,9 +461,11 @@ class JimengPlugin(Star):
                         cfg,
                         prompt=prompt,
                         model=model,
+                        ratio=vratio,
                         width=width,
                         height=height,
                         resolution=vres,
+                        duration=vdur,
                         file_urls=file_urls,
                         response_format=None,
                         session_tokens=[tok],
@@ -549,7 +569,7 @@ class JimengPlugin(Star):
             return
 
         # 解析简单的 kv 选项
-        ratio, res, fmt = None, None, None
+        ratio, res, fmt, ir = None, None, None, None
         prompt = text
         # 简单解析：用空格分隔，形如 key=value
         parts = text.split()
@@ -567,6 +587,12 @@ class JimengPlugin(Star):
                         res = v
                     elif k in ("fmt", "format"):
                         fmt = v
+                    elif k in ("ir", "intelligent_ratio"):
+                        lv = v.strip().lower()
+                        if lv in ("1", "true", "yes", "on", "是"):
+                            ir = True
+                        elif lv in ("0", "false", "no", "off", "否"):
+                            ir = False
 
         cfg = self._cfg()
         try:
@@ -583,6 +609,7 @@ class JimengPlugin(Star):
                             prompt=prompt,
                             ratio=ratio,
                             resolution=res,
+                            intelligent_ratio=ir,
                             negative_prompt=None,
                             response_format=fmt,
                             session_tokens=[tok],
@@ -593,6 +620,7 @@ class JimengPlugin(Star):
                         prompt=prompt,
                         ratio=ratio,
                         resolution=res,
+                        intelligent_ratio=ir,
                         negative_prompt=None,
                         response_format=fmt,
                         session_tokens=[tok],
@@ -665,7 +693,7 @@ class JimengPlugin(Star):
             yield event.plain_result("请提供修改描述，并附带或引用图片，如 /即梦改图 转油画风格")
             return
 
-        ratio, res, fmt, strength = None, None, None, None
+        ratio, res, fmt, strength, ir = None, None, None, None, None
         prompt = text
         parts = text.split()
         if len(parts) > 1:
@@ -686,6 +714,12 @@ class JimengPlugin(Star):
                             strength = float(v)
                         except Exception:
                             pass
+                    elif k in ("ir", "intelligent_ratio"):
+                        lv = v.strip().lower()
+                        if lv in ("1", "true", "yes", "on", "是"):
+                            ir = True
+                        elif lv in ("0", "false", "no", "off", "否"):
+                            ir = False
 
         image_urls = await self._collect_image_urls_from_event(event)
         if not image_urls:
@@ -708,6 +742,7 @@ class JimengPlugin(Star):
                             image_urls=image_urls,
                             ratio=ratio,
                             resolution=res,
+                            intelligent_ratio=ir,
                             sample_strength=strength,
                             negative_prompt=None,
                             response_format=fmt,
@@ -720,6 +755,7 @@ class JimengPlugin(Star):
                         image_urls=image_urls,
                         ratio=ratio,
                         resolution=res,
+                        intelligent_ratio=ir,
                         sample_strength=strength,
                         negative_prompt=None,
                         response_format=fmt,

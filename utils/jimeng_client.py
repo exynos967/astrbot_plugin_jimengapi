@@ -16,6 +16,7 @@ class JimengConfig:
     model: str = "jimeng-4.0"
     default_ratio: str = "1:1"
     default_resolution: str = "2k"
+    intelligent_ratio: bool = False
     negative_prompt: str = ""
     sample_strength: float = 0.7
     response_format: str = "url"  # "url" | "b64_json"
@@ -172,9 +173,11 @@ async def generate_video_v2(
     cfg: JimengConfig,
     prompt: str,
     model: Optional[str] = None,
+    ratio: Optional[str] = None,
     width: Optional[int] = None,
     height: Optional[int] = None,
     resolution: Optional[str] = None,
+    duration: Optional[int] = None,
     file_urls: Optional[Sequence[str]] = None,
     response_format: Optional[str] = None,
     session_tokens: Optional[Sequence[str]] = None,
@@ -191,12 +194,19 @@ async def generate_video_v2(
         "model": use_model,
         "prompt": prompt,
     }
+    if ratio:
+        payload["ratio"] = ratio
     if width:
         payload["width"] = int(width)
     if height:
         payload["height"] = int(height)
     if resolution:
         payload["resolution"] = resolution
+    if duration:
+        try:
+            payload["duration"] = int(duration)
+        except Exception:
+            pass
     rf = (response_format or cfg.response_format).lower().strip()
     if rf in ("url", "b64_json"):
         payload["response_format"] = rf
@@ -235,6 +245,7 @@ async def generate_image(
     prompt: str,
     ratio: Optional[str] = None,
     resolution: Optional[str] = None,
+    intelligent_ratio: Optional[bool] = None,
     negative_prompt: Optional[str] = None,
     response_format: Optional[str] = None,
     session_tokens: Optional[Sequence[str]] = None,
@@ -244,12 +255,18 @@ async def generate_image(
     Returns: (image_url, b64_data)
     """
     url = cfg.base_url.rstrip("/") + "/v1/images/generations"
-    payload = {
+    payload: Dict[str, object] = {
         "model": cfg.model,
         "prompt": prompt,
-        "ratio": ratio or cfg.default_ratio,
-        "resolution": resolution or cfg.default_resolution,
+        "ratio": (ratio or cfg.default_ratio),
+        "resolution": (resolution or cfg.default_resolution),
     }
+    # 智能比例：僅部分模型支持，API 會自行忽略不支持的情況
+    use_ir: Optional[bool] = intelligent_ratio
+    if use_ir is None:
+        use_ir = cfg.intelligent_ratio
+    if use_ir is not None:
+        payload["intelligent_ratio"] = bool(use_ir)
     if (negative_prompt or cfg.negative_prompt):
         payload["negative_prompt"] = negative_prompt or cfg.negative_prompt
 
@@ -288,6 +305,7 @@ async def compose_image(
     image_urls: List[str],
     ratio: Optional[str] = None,
     resolution: Optional[str] = None,
+    intelligent_ratio: Optional[bool] = None,
     sample_strength: Optional[float] = None,
     negative_prompt: Optional[str] = None,
     response_format: Optional[str] = None,
@@ -298,13 +316,18 @@ async def compose_image(
     Returns: (image_url, b64_data)
     """
     url = cfg.base_url.rstrip("/") + "/v1/images/compositions"
-    payload = {
+    payload: Dict[str, object] = {
         "model": cfg.model,
         "prompt": prompt,
         "images": image_urls,
-        "ratio": ratio or cfg.default_ratio,
-        "resolution": resolution or cfg.default_resolution,
+        "ratio": (ratio or cfg.default_ratio),
+        "resolution": (resolution or cfg.default_resolution),
     }
+    use_ir: Optional[bool] = intelligent_ratio
+    if use_ir is None:
+        use_ir = cfg.intelligent_ratio
+    if use_ir is not None:
+        payload["intelligent_ratio"] = bool(use_ir)
     if sample_strength is not None:
         payload["sample_strength"] = float(sample_strength)
     if (negative_prompt or cfg.negative_prompt):

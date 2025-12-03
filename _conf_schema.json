@@ -23,11 +23,14 @@
     "type": "string",
     "default": "jimeng-4.0",
     "options": [
+      "jimeng-4.1",
       "jimeng-4.0",
       "jimeng-3.1",
       "jimeng-3.0",
       "jimeng-2.1",
-      "nanobanana"
+      "nanobanana",
+      "nanobananapro",
+      "jimeng-xl-pro"
     ]
   },
   "default_ratio": {
@@ -41,6 +44,11 @@
     "type": "string",
     "default": "2k",
     "options": ["1k", "2k", "4k"]
+  },
+  "intelligent_ratio": {
+    "description": "是否启用智能比例（仅部分模型支持）",
+    "type": "bool",
+    "default": false
   },
   "negative_prompt": {
     "description": "默认负面提示词（可选）",
@@ -87,6 +95,7 @@
     "options": [
       "jimeng-video-3.0-pro",
       "jimeng-video-3.0",
+      "jimeng-video-3.0-fast",
       "jimeng-video-2.0-pro",
       "jimeng-video-2.0"
     ]
@@ -148,4 +157,3 @@
     "default": 3
   }
 }
-

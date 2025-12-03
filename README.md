@@ -1,17 +1,18 @@
 # AstrBot 插件：即梦2 API（生图/改图/视频）
 
-对接 即梦2API，提供文生图与图生图，文生视频能力。
+对接 即梦2API，提供文生图与图生图，文生视频能力，支持最新模型与智能比例参数。
 
-- 命令：`/即梦生图 <prompt> [ratio=1:1] [res=2k] [fmt=url|b64]`
-- 命令：`/即梦改图 <prompt> [ratio=1:1] [res=2k] [fmt=url|b64] [strength=0.7]`（需引用或附带图片）
-- 命令：`/即梦视频 <prompt> [model=jimeng-video-3.0] [stream=true|false]`
+- 命令：`/即梦生图 <prompt> [ratio=1:1] [res=2k] [fmt=url|b64] [ir=true|false]`
+- 命令：`/即梦改图 <prompt> [ratio=1:1] [res=2k] [fmt=url|b64] [strength=0.7] [ir=true|false]`（需引用或附带图片）
+- 命令：`/即梦视频 <prompt> [model=jimeng-video-3.0] [ratio=16:9] [res=1080p] [duration=5] [stream=true|false]`
 
 ## 安装与配置
 
 1. 将本插件文件夹放入 AstrBot 插件目录。
 2. 在 AstrBot Web 管理界面 → 插件管理 → 本插件 → 配置：
    - `base_url`: 例如 `http://localhost:5100`
-   - `session_token`: `Authorization: Bearer <TOKEN>` 所需 Session
+   - `session_tokens`: `Authorization: Bearer <TOKEN>` 所需 Session 列表（推荐使用，支持轮询；国际站请自行加上 `us-`/`hk-` 前缀）
+   - `session_token`: 单个 Session（仅用于兼容旧版）
    - 其他参数参考 `_conf_schema.json`
 
 ## 关键特性
@@ -23,9 +24,9 @@
 
 ## 工作流程
 
-- 生图：调用 `/v1/images/generations`，优先返回 URL；必要时支持 `b64_json` → 保存本地 → 转 URL 发送
-- 改图：从消息或引用中提取图片 → `convert_to_web_link()` → 作为 `images` 传给 `/compositions`
-- 视频：调用 `/v1/chat/completions`（视频模型），默认用 SSE 汇聚文本提取直链 → 统一下载到本地后以视频组件发送
+- 生图：调用 `/v1/images/generations`，支持 `ratio` + `resolution`（1k/2k/4k），可选 `intelligent_ratio`，优先返回 URL；必要时支持 `b64_json` → 保存本地 → 转 URL 发送
+- 改图：从消息或引用中提取图片 → `convert_to_web_link()` → 作为 `images` 传给 `/v1/images/compositions`，同样支持 `ratio`/`resolution`/`intelligent_ratio`
+- 视频：调用 `/v1/videos/generations`（文本/图生视频），根据是否附带图片自动选择文生视频/首帧/首尾帧模式；老版 LLM 工具仍可通过 `/v1/chat/completions` 生成直链
 
 ## 注意
 
